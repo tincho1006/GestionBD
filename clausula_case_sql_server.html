@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cláusula CASE en SQL Server</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --surface3: #30363d;
+  --border: #30363d;
+  --border2: #484f58;
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --text3: #6e7681;
+  --accent: #f0883e;
+  --accent2: #b45309;
+  --accent-bg: #1f1208;
+  --green: #3fb950;
+  --green-bg: #0d2b10;
+  --amber: #d29922;
+  --amber-bg: #2b1d0e;
+  --coral: #f85149;
+  --coral-bg: #2d1116;
+  --purple: #bc8cff;
+  --purple-bg: #1c1040;
+  --blue: #58a6ff;
+  --blue-bg: #0d1f36;
+  --keyword: #ff7b72;
+  --func: #d2a8ff;
+  --string: #a5d6ff;
+  --comment: #6e7681;
+  --number: #79c0ff;
+  --operator: #ffa657;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(240,136,62,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(240,136,62,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── HEADER ── */
+header { padding: 48px 0 0; margin-bottom: 48px; }
+
+.header-top {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 20px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(240, 136, 62, 0.08);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  transition: transform .2s, border-color .2s, background .2s, color .2s;
+}
+
+.back-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: #fed7aa;
+}
+
+.back-link span {
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent2);
+  color: #fed7aa;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+.badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.5;transform:scale(.8)}
+}
+
+h1 {
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  margin-bottom: 12px;
+}
+
+h1 span { color: var(--accent); }
+
+.subtitle {
+  font-size: 17px;
+  color: var(--text2);
+  line-height: 1.6;
+  max-width: 560px;
+  font-weight: 400;
+}
+
+/* ── NAV ── */
+.nav {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 40px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar { display: none; }
+
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .2s;
+  white-space: nowrap;
+  border-radius: 6px 6px 0 0;
+}
+
+.nav-btn:hover { color: var(--text); background: var(--surface2); }
+.nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--surface); }
+
+/* ── SECTIONS ── */
+.section { display: none; animation: fadeIn .3s ease; }
+.section.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── INTRO CARDS ── */
+.intro-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.intro-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.intro-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--card-color);
+  opacity: 0;
+  transition: opacity .2s;
+}
+
+.intro-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+.intro-card:hover::before { opacity: 1; }
+
+.card-icon {
+  font-size: 20px;
+  margin-bottom: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--card-color);
+  font-weight: 700;
+}
+
+.intro-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.intro-card p  { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+/* ── CONCEPTO ── */
+.concepto {
+  background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 32px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text2);
+}
+
+.concepto strong { color: var(--text); }
+
+/* ── CODE BLOCK ── */
+.code-wrapper {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+.code-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.code-title::before {
+  content: '';
+  display: inline-block;
+  width: 8px; height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.copy-btn {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.copy-btn:hover { background: var(--border); color: var(--text); }
+.copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+pre {
+  padding: 20px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.kw  { color: var(--keyword); font-weight: 600; }
+.fn  { color: var(--func); }
+.st  { color: var(--string); }
+.cm  { color: var(--comment); font-style: italic; }
+.nm  { color: var(--number); }
+.op  { color: var(--operator); }
+.tbl { color: var(--green); }
+.hl  { background: rgba(240,136,62,0.12); border-left: 2px solid var(--accent); padding-left: 6px; display: block; margin-left: -6px; }
+
+/* ── EXPLICACION ── */
+.explicacion {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 32px;
+}
+
+.explicacion h4 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 14px;
+}
+
+.step-list { list-style: none; }
+
+.step-list li {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text2);
+}
+
+.step-list li:last-child { border-bottom: none; }
+
+.step-num {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  background: var(--accent2);
+  color: #fed7aa;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.step-list li strong { color: var(--text); }
+
+/* ── TIPS ── */
+.tip {
+  display: flex;
+  gap: 12px;
+  background: var(--amber-bg);
+  border: 1px solid rgba(210,153,34,0.3);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 13.5px;
+  color: var(--amber);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.tip-icon { font-size: 16px; flex-shrink: 0; }
+
+.danger { background: var(--coral-bg); border-color: rgba(248,81,73,0.3); color: var(--coral); }
+.success { background: var(--green-bg); border-color: rgba(63,185,80,0.3); color: var(--green); }
+.info { background: var(--blue-bg); border-color: rgba(88,166,255,0.3); color: var(--blue); }
+
+/* ── COMPARE GRID ── */
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 600px) { .compare-grid { grid-template-columns: 1fr; } }
+
+.compare-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.compare-card-header {
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.compare-card.simple .compare-card-header  { background: var(--accent-bg); color: var(--accent); }
+.compare-card.buscado .compare-card-header { background: var(--blue-bg); color: var(--blue); }
+.compare-card pre { font-size: 12.5px; padding: 16px; }
+
+/* ── SYNTAX DIAGRAM ── */
+.syntax-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 2;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.syn-kw    { color: var(--keyword); font-weight: 700; }
+.syn-ph    { color: var(--text3); font-style: italic; }
+.syn-opt   { color: var(--amber); }
+.syn-rep   { color: var(--green); }
+.syn-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text3);
+  margin-left: 16px;
+  vertical-align: middle;
+}
+
+/* ── OP TABLE ── */
+.op-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 28px;
+  font-size: 14px;
+}
+
+.op-table th {
+  background: var(--surface2);
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+}
+
+.op-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--text2);
+  line-height: 1.5;
+}
+
+.op-table tr:hover td { background: var(--surface2); }
+
+.op-table td:first-child {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--keyword);
+  width: 100px;
+}
+
+/* ── INTERACTIVE DEMO ── */
+.demo-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+
+.demo-header {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.demo-header::before {
+  content: '▶';
+  color: var(--accent);
+  font-size: 10px;
+}
+
+.demo-body { padding: 20px; }
+
+.demo-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  align-items: center;
+}
+
+.demo-controls label {
+  font-size: 13px;
+  color: var(--text2);
+}
+
+.demo-controls input[type=range] {
+  flex: 1;
+  min-width: 120px;
+  accent-color: var(--accent);
+}
+
+.demo-controls select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.demo-result {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.result-row {
+  display: flex;
+  gap: 16px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  align-items: center;
+}
+
+.result-row:last-child { border-bottom: none; }
+
+.result-val {
+  min-width: 60px;
+  color: var(--number);
+  font-weight: 600;
+}
+
+.result-label {
+  flex: 1;
+  color: var(--text2);
+}
+
+.result-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 10px;
+  text-align: center;
+  min-width: 90px;
+}
+
+/* ── QUIZ ── */
+.quiz-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px;
+  margin-bottom: 24px;
+}
+
+.quiz-q {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.quiz-q .q-num {
+  color: var(--accent);
+  font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.quiz-code {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 18px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.options { display: flex; flex-direction: column; gap: 10px; }
+
+.option {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: 'Syne', sans-serif;
+  color: var(--text);
+  text-align: left;
+  transition: all .15s;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.option:hover:not(:disabled) { border-color: var(--accent); background: rgba(240,136,62,0.06); }
+.option:disabled { cursor: default; }
+.option.correct { border-color: var(--green); background: var(--green-bg); color: var(--green); }
+.option.wrong   { border-color: var(--coral); background: var(--coral-bg); color: var(--coral); }
+
+.opt-letter {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--surface3);
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.feedback {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  display: none;
+}
+
+.feedback.show { display: block; }
+.feedback.ok  { background: var(--green-bg); border: 1px solid rgba(63,185,80,0.3); color: var(--green); }
+.feedback.err { background: var(--coral-bg); border: 1px solid rgba(248,81,73,0.3); color: var(--coral); }
+
+.quiz-score {
+  text-align: center;
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 24px;
+}
+
+.score-num { font-size: 64px; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 8px; }
+.score-label { font-size: 16px; color: var(--text2); margin-bottom: 20px; }
+
+.btn {
+  background: var(--accent2);
+  color: #fed7aa;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn:hover { background: var(--accent); color: #1f1208; }
+
+/* ── MISC ── */
+.progress-bar { height: 2px; background: var(--border); margin-bottom: 40px; border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width .3s ease; }
+
+h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; letter-spacing: -.01em; }
+h3 { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: var(--text); }
+.section-intro { font-size: 15px; color: var(--text2); line-height: 1.7; margin-bottom: 32px; }
+hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+footer {
+  text-align: center;
+  padding: 40px 0 32px;
+  color: var(--text3);
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+  margin-top: 40px;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+code {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent);
+  font-size: .92em;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<header>
+  <div class="header-top">
+    <a class="back-link" href="index_sql_server.html"><span>&larr;</span>Volver al índice</a>
+  </div>
+  <div class="badge">Clase 02 · SQL Server</div>
+  <h1>Cláusula <span>CASE</span><br>en SQL Server</h1>
+  <p class="subtitle">Lógica condicional dentro de tus consultas: transformá valores, clasificá datos y construí columnas calculadas sin salir del SELECT.</p>
+</header>
+
+<div class="progress-bar"><div class="progress-fill" id="progress" style="width:17%"></div></div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showTab('intro',0)">📖 Introducción</button>
+  <button class="nav-btn" onclick="showTab('sintaxis',1)">📐 Sintaxis</button>
+  <button class="nav-btn" onclick="showTab('usos',2)">🛠️ Usos prácticos</button>
+  <button class="nav-btn" onclick="showTab('anidado',3)">🔀 CASE anidado</button>
+  <button class="nav-btn" onclick="showTab('errores',4)">⚠️ Errores comunes</button>
+  <button class="nav-btn" onclick="showTab('quiz',5)">🧠 Quiz</button>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     TAB 1: INTRODUCCIÓN
+══════════════════════════════════════════ -->
+<div class="section active" id="tab-intro">
+  <h2>¿Qué es la cláusula CASE?</h2>
+  <p class="section-intro">CASE es la forma de escribir lógica condicional <strong style="color:var(--text)">del tipo SI/ENTONCES/SINO</strong> directamente dentro de una sentencia SQL. Funciona como el <code>IF-ELSE</code> de otros lenguajes, pero integrado en cualquier parte de tu consulta.</p>
+
+  <div class="concepto">
+    CASE <strong>no es una sentencia</strong>, es una <strong>expresión</strong>. Eso significa que devuelve un valor y podés usarla en cualquier lugar donde pondría una columna o un valor: en SELECT, ORDER BY, WHERE, GROUP BY, e incluso dentro de funciones de agregación.
+  </div>
+
+  <div class="intro-grid">
+    <div class="intro-card" style="--card-color:var(--accent)" onclick="showTab('sintaxis',1)">
+      <div class="card-icon">CASE</div>
+      <h3>Dos formas de escribirlo</h3>
+      <p>CASE simple y CASE buscado. Distintos escenarios, misma lógica.</p>
+    </div>
+    <div class="intro-card" style="--card-color:var(--blue)" onclick="showTab('usos',2)">
+      <div class="card-icon">→</div>
+      <h3>Usos prácticos</h3>
+      <p>Clasificar datos, pivotar resultados, columnas calculadas, rangos.</p>
+    </div>
+    <div class="intro-card" style="--card-color:var(--purple)" onclick="showTab('anidado',3)">
+      <div class="card-icon">{ }</div>
+      <h3>CASE anidado</h3>
+      <p>CASE dentro de CASE para condiciones más complejas.</p>
+    </div>
+    <div class="intro-card" style="--card-color:var(--coral)" onclick="showTab('errores',4)">
+      <div class="card-icon">!</div>
+      <h3>Errores comunes</h3>
+      <p>Las trampas más frecuentes: tipos de dato, NULL, orden de condiciones.</p>
+    </div>
+  </div>
+
+  <hr>
+  <h3>El equivalente programático</h3>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">Si venís de otro lenguaje, CASE es el IF-ELSE de SQL:</p>
+
+  <div class="compare-grid">
+    <div class="compare-card simple">
+      <div class="compare-card-header">En un lenguaje de programación</div>
+      <pre><span class="cm">// pseudocódigo</span>
+<span class="kw">if</span> (sueldo > 100000) {
+    categoria = <span class="st">"Alto"</span>
+} <span class="kw">else if</span> (sueldo > 50000) {
+    categoria = <span class="st">"Medio"</span>
+} <span class="kw">else</span> {
+    categoria = <span class="st">"Bajo"</span>
+}</pre>
+    </div>
+    <div class="compare-card buscado">
+      <div class="compare-card-header">En SQL con CASE</div>
+      <pre><span class="kw">CASE</span>
+  <span class="kw">WHEN</span> sueldo <span class="op">&gt;</span> <span class="nm">100000</span>
+    <span class="kw">THEN</span> <span class="st">'Alto'</span>
+  <span class="kw">WHEN</span> sueldo <span class="op">&gt;</span> <span class="nm">50000</span>
+    <span class="kw">THEN</span> <span class="st">'Medio'</span>
+  <span class="kw">ELSE</span> <span class="st">'Bajo'</span>
+<span class="kw">END</span></pre>
+    </div>
+  </div>
+
+  <div class="tip info">
+    <span class="tip-icon">💡</span>
+    <div>CASE siempre termina con <code>END</code>. Es obligatorio. Si falta, SQL Server lanza un error de sintaxis.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 2: SINTAXIS
+══════════════════════════════════════════ -->
+<div class="section" id="tab-sintaxis">
+  <h2>Las dos formas de CASE</h2>
+  <p class="section-intro">SQL Server admite dos variantes. La diferencia está en <strong style="color:var(--text)">dónde se pone la condición de comparación</strong>.</p>
+
+  <!-- CASE SIMPLE -->
+  <h3>① CASE simple — compara contra valores exactos</h3>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">Se escribe la expresión a comparar una sola vez, después de CASE. Cada WHEN especifica un valor posible.</p>
+
+  <div class="syntax-box">
+    <span class="syn-kw">CASE</span> <span class="syn-ph">expresion</span><br>
+    &nbsp;&nbsp;<span class="syn-rep">WHEN</span> <span class="syn-ph">valor1</span> <span class="syn-kw">THEN</span> <span class="syn-ph">resultado1</span><br>
+    &nbsp;&nbsp;<span class="syn-rep">WHEN</span> <span class="syn-ph">valor2</span> <span class="syn-kw">THEN</span> <span class="syn-ph">resultado2</span><br>
+    &nbsp;&nbsp;<span class="syn-rep">WHEN</span> <span class="syn-ph">...</span><br>
+    &nbsp;&nbsp;<span class="syn-opt">ELSE</span> <span class="syn-ph">resultado_por_defecto</span> &nbsp;<span class="syn-label">← opcional, pero recomendado</span><br>
+    <span class="syn-kw">END</span>
+  </div>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <span class="code-title">case_simple.sql — traducir un código a texto</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><span class="kw">SELECT</span>
+    Nombre,
+    IdEstado,
+    <span class="hl">    <span class="kw">CASE</span> IdEstado
+        <span class="kw">WHEN</span> <span class="nm">1</span> <span class="kw">THEN</span> <span class="st">'Activo'</span>
+        <span class="kw">WHEN</span> <span class="nm">2</span> <span class="kw">THEN</span> <span class="st">'Suspendido'</span>
+        <span class="kw">WHEN</span> <span class="nm">3</span> <span class="kw">THEN</span> <span class="st">'Retirado'</span>
+        <span class="kw">ELSE</span>     <span class="st">'Desconocido'</span>
+    <span class="kw">END</span> <span class="kw">AS</span> EstadoDescripcion</span>
+<span class="kw">FROM</span> <span class="tbl">Empleados</span>;</pre>
+  </div>
+
+  <div class="explicacion">
+    <h4>Cómo lo evalúa SQL Server</h4>
+    <ul class="step-list">
+      <li><div class="step-num">1</div><div>Evalúa <code>IdEstado</code> para cada fila.</div></li>
+      <li><div class="step-num">2</div><div>Recorre los WHEN de <strong>arriba hacia abajo</strong> y devuelve el THEN del primer WHEN que coincide.</div></li>
+      <li><div class="step-num">3</div><div>Si ningún WHEN coincide, devuelve el valor del <strong>ELSE</strong>.</div></li>
+      <li><div class="step-num">4</div><div>Si no hay ELSE y ningún WHEN coincide, devuelve <strong>NULL</strong>.</div></li>
+    </ul>
+  </div>
+
+  <hr>
+
+  <!-- CASE BUSCADO -->
+  <h3>② CASE buscado — condiciones libres con operadores</h3>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">No hay expresión después de CASE. Cada WHEN tiene su propia condición completa, lo que permite usar <code>&gt;</code>, <code>&lt;</code>, <code>LIKE</code>, <code>BETWEEN</code>, <code>IS NULL</code>, etc.</p>
+
+  <div class="syntax-box">
+    <span class="syn-kw">CASE</span><br>
+    &nbsp;&nbsp;<span class="syn-rep">WHEN</span> <span class="syn-ph">condicion1</span> <span class="syn-kw">THEN</span> <span class="syn-ph">resultado1</span><br>
+    &nbsp;&nbsp;<span class="syn-rep">WHEN</span> <span class="syn-ph">condicion2</span> <span class="syn-kw">THEN</span> <span class="syn-ph">resultado2</span><br>
+    &nbsp;&nbsp;<span class="syn-rep">WHEN</span> <span class="syn-ph">...</span><br>
+    &nbsp;&nbsp;<span class="syn-opt">ELSE</span> <span class="syn-ph">resultado_por_defecto</span><br>
+    <span class="syn-kw">END</span>
+  </div>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <span class="code-title">case_buscado.sql — clasificar por rango de sueldo</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><span class="kw">SELECT</span>
+    Nombre,
+    Sueldo,
+    <span class="hl">    <span class="kw">CASE</span>
+        <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span> <span class="nm">150000</span> <span class="kw">THEN</span> <span class="st">'Premium'</span>
+        <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span> <span class="nm">100000</span> <span class="kw">THEN</span> <span class="st">'Alto'</span>
+        <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span>  <span class="nm">50000</span> <span class="kw">THEN</span> <span class="st">'Medio'</span>
+        <span class="kw">ELSE</span>                         <span class="st">'Básico'</span>
+    <span class="kw">END</span> <span class="kw">AS</span> Categoria</span>
+<span class="kw">FROM</span> <span class="tbl">Empleados</span>;</pre>
+  </div>
+
+  <div class="tip">
+    <span class="tip-icon">⚠️</span>
+    <div>El orden de los WHEN <strong>importa</strong>. SQL Server devuelve el resultado del <em>primer</em> WHEN verdadero y no evalúa el resto. Si ponés <code>WHEN Sueldo >= 50000</code> antes que <code>WHEN Sueldo >= 100000</code>, todos los sueldos altos caerán en la categoría equivocada. Siempre definí las condiciones de <strong>mayor a menor especificidad</strong>.</div>
+  </div>
+
+  <hr>
+  <h3>Diferencias clave</h3>
+
+  <table class="op-table">
+    <thead><tr><th></th><th>CASE simple</th><th>CASE buscado</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Expresión</td>
+        <td style="color:var(--text)">Una vez, después de CASE</td>
+        <td style="color:var(--text)">Cada WHEN tiene la suya</td>
+      </tr>
+      <tr>
+        <td>Comparación</td>
+        <td style="color:var(--text)">Solo igualdad (=)</td>
+        <td style="color:var(--text)">Cualquier operador: &gt;, &lt;, LIKE, BETWEEN, IS NULL…</td>
+      </tr>
+      <tr>
+        <td>Maneja NULL</td>
+        <td style="color:var(--coral)">No (WHEN NULL no funciona)</td>
+        <td style="color:var(--green)">Sí (WHEN col IS NULL)</td>
+      </tr>
+      <tr>
+        <td>Cuándo usarlo</td>
+        <td style="color:var(--text)">Valores discretos conocidos</td>
+        <td style="color:var(--text)">Rangos, condiciones complejas</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 3: USOS PRÁCTICOS
+══════════════════════════════════════════ -->
+<div class="section" id="tab-usos">
+  <h2>Usos prácticos</h2>
+  <p class="section-intro">CASE aparece en muchos escenarios del mundo real. Estos son los más frecuentes.</p>
+
+  <!-- Demo interactivo -->
+  <h3>① Clasificación por rangos — demo interactivo</h3>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">Modificá el sueldo con el slider y mirá cómo CASE lo clasifica en tiempo real:</p>
+
+  <div class="demo-box">
+    <div class="demo-header">Simulador CASE — clasificación de sueldos</div>
+    <div class="demo-body">
+      <div class="demo-controls">
+        <label>Sueldo: $<strong id="sueldo-val">85000</strong></label>
+        <input type="range" min="10000" max="200000" step="5000" value="85000" id="sueldo-slider" oninput="updateDemo()">
+      </div>
+      <div class="demo-result" id="demo-result"></div>
+    </div>
+  </div>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <span class="code-title">clasificacion_rangos.sql</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><span class="kw">SELECT</span>
+    Nombre,
+    Sueldo,
+    <span class="kw">CASE</span>
+        <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span> <span class="nm">150000</span> <span class="kw">THEN</span> <span class="st">'Premium'</span>
+        <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span> <span class="nm">100000</span> <span class="kw">THEN</span> <span class="st">'Alto'</span>
+        <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span>  <span class="nm">50000</span> <span class="kw">THEN</span> <span class="st">'Medio'</span>
+        <span class="kw">ELSE</span>                         <span class="st">'Básico'</span>
+    <span class="kw">END</span> <span class="kw">AS</span> Categoria
+<span class="kw">FROM</span> <span class="tbl">Empleados</span>;</pre>
+  </div>
+
+  <hr>
+
+  <!-- CASE en ORDER BY -->
+  <h3>② CASE en ORDER BY — orden personalizado</h3>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">Podés definir un orden lógico que no sigue el alfabético ni el numérico.</p>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <span class="code-title">case_order_by.sql — ordenar por prioridad de estado</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><span class="kw">SELECT</span> Nombre, Estado
+<span class="kw">FROM</span>   <span class="tbl">Tickets</span>
+<span class="kw">ORDER BY</span>
+    <span class="hl">    <span class="kw">CASE</span> Estado
+        <span class="kw">WHEN</span> <span class="st">'Crítico'</span>  <span class="kw">THEN</span> <span class="nm">1</span>
+        <span class="kw">WHEN</span> <span class="st">'Urgente'</span>  <span class="kw">THEN</span> <span class="nm">2</span>
+        <span class="kw">WHEN</span> <span class="st">'Normal'</span>   <span class="kw">THEN</span> <span class="nm">3</span>
+        <span class="kw">WHEN</span> <span class="st">'Cerrado'</span>  <span class="kw">THEN</span> <span class="nm">4</span>
+        <span class="kw">ELSE</span>              <span class="nm">99</span>
+    <span class="kw">END</span></span>,
+    FechaCreacion <span class="kw">ASC</span>;</pre>
+  </div>
+
+  <hr>
+
+  <!-- CASE en agregaciones -->
+  <h3>③ CASE dentro de funciones de agregación</h3>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">Una de las combinaciones más poderosas: contar o sumar solo las filas que cumplen cierta condición.</p>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <span class="code-title">case_con_sum.sql — contar empleados por categoría en una sola pasada</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><span class="kw">SELECT</span>
+    <span class="fn">COUNT</span>(<span class="op">*</span>)                                              <span class="kw">AS</span> Total,
+    <span class="hl">    <span class="fn">SUM</span>(<span class="kw">CASE</span> <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span> <span class="nm">100000</span> <span class="kw">THEN</span> <span class="nm">1</span> <span class="kw">ELSE</span> <span class="nm">0</span> <span class="kw">END</span>) <span class="kw">AS</span> Categoria_Alto,</span>
+    <span class="hl">    <span class="fn">SUM</span>(<span class="kw">CASE</span> <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span>  <span class="nm">50000</span>
+              <span class="kw">AND</span>  Sueldo  <span class="op">&lt;</span> <span class="nm">100000</span> <span class="kw">THEN</span> <span class="nm">1</span> <span class="kw">ELSE</span> <span class="nm">0</span> <span class="kw">END</span>) <span class="kw">AS</span> Categoria_Medio,</span>
+    <span class="hl">    <span class="fn">SUM</span>(<span class="kw">CASE</span> <span class="kw">WHEN</span> Sueldo  <span class="op">&lt;</span>  <span class="nm">50000</span> <span class="kw">THEN</span> <span class="nm">1</span> <span class="kw">ELSE</span> <span class="nm">0</span> <span class="kw">END</span>) <span class="kw">AS</span> Categoria_Basico</span>
+<span class="kw">FROM</span> <span class="tbl">Empleados</span>;</pre>
+  </div>
+
+  <div class="explicacion">
+    <h4>¿Por qué funciona?</h4>
+    <ul class="step-list">
+      <li><div class="step-num">1</div><div>CASE devuelve <strong>1</strong> si la condición se cumple, <strong>0</strong> si no.</div></li>
+      <li><div class="step-num">2</div><div>SUM suma todos esos 1s → el total de filas que cumplen la condición.</div></li>
+      <li><div class="step-num">3</div><div>Esto es equivalente a hacer tres COUNT con WHERE diferentes, pero en <strong>una sola consulta</strong>.</div></li>
+    </ul>
+  </div>
+
+  <hr>
+
+  <!-- CASE para manejar NULLs -->
+  <h3>④ Manejo de NULLs con CASE</h3>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">CASE buscado puede reemplazar valores NULL con un texto legible.</p>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <span class="code-title">case_null.sql</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><span class="kw">SELECT</span>
+    Nombre,
+    <span class="kw">CASE</span>
+        <span class="kw">WHEN</span> Telefono <span class="kw">IS NULL</span> <span class="kw">THEN</span> <span class="st">'Sin teléfono'</span>
+        <span class="kw">ELSE</span> Telefono
+    <span class="kw">END</span> <span class="kw">AS</span> ContactoTelefono
+<span class="kw">FROM</span> <span class="tbl">Empleados</span>;
+
+<span class="cm">-- Nota: ISNULL() hace lo mismo en este caso concreto</span>
+<span class="cm">-- pero CASE es más flexible para lógica compleja</span></pre>
+  </div>
+
+  <div class="tip success">
+    <span class="tip-icon">💡</span>
+    <div>SQL Server también tiene <code>ISNULL(col, 'valor')</code> y <code>COALESCE(col1, col2)</code> para reemplazar NULLs de forma más concisa. Pero cuando necesitás condiciones más complejas que solo "es NULL o no", CASE es la herramienta.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 4: CASE ANIDADO
+══════════════════════════════════════════ -->
+<div class="section" id="tab-anidado">
+  <h2>CASE anidado</h2>
+  <p class="section-intro">Podés poner un CASE dentro del THEN o del ELSE de otro CASE. Esto permite lógica de <strong style="color:var(--text)">múltiples dimensiones</strong>: primero clasificás por una columna, y dentro de cada rama por otra.</p>
+
+  <div class="concepto">
+    CASE anidado es poderoso, pero debe usarse con criterio. Si el anidamiento supera 2 o 3 niveles, la consulta se vuelve difícil de leer y mantener. En esos casos, conviene revisar si la lógica puede expresarse con condiciones AND/OR en un solo CASE buscado.
+  </div>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <span class="code-title">case_anidado.sql — categoría según departamento y sueldo</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><span class="kw">SELECT</span>
+    e.Nombre,
+    d.NombreDepto,
+    e.Sueldo,
+    <span class="kw">CASE</span> d.NombreDepto
+        <span class="kw">WHEN</span> <span class="st">'Sistemas'</span> <span class="kw">THEN</span>
+            <span class="hl">            <span class="kw">CASE</span>
+                <span class="kw">WHEN</span> e.Sueldo <span class="op">&gt;=</span> <span class="nm">120000</span> <span class="kw">THEN</span> <span class="st">'Tech Senior'</span>
+                <span class="kw">WHEN</span> e.Sueldo <span class="op">&gt;=</span>  <span class="nm">80000</span> <span class="kw">THEN</span> <span class="st">'Tech Mid'</span>
+                <span class="kw">ELSE</span>                          <span class="st">'Tech Junior'</span>
+            <span class="kw">END</span></span>
+        <span class="kw">WHEN</span> <span class="st">'Ventas'</span> <span class="kw">THEN</span>
+            <span class="hl">            <span class="kw">CASE</span>
+                <span class="kw">WHEN</span> e.Sueldo <span class="op">&gt;=</span> <span class="nm">100000</span> <span class="kw">THEN</span> <span class="st">'Vendedor A'</span>
+                <span class="kw">ELSE</span>                          <span class="st">'Vendedor B'</span>
+            <span class="kw">END</span></span>
+        <span class="kw">ELSE</span> <span class="st">'Área general'</span>
+    <span class="kw">END</span> <span class="kw">AS</span> NivelEmpleado
+<span class="kw">FROM</span>      <span class="tbl">Empleados</span>   e
+<span class="kw">JOIN</span>      <span class="tbl">Departamentos</span> d
+    <span class="kw">ON</span>  d.IdDepartamento <span class="op">=</span> e.IdDepartamento;</pre>
+  </div>
+
+  <div class="explicacion">
+    <h4>Cómo lo evalúa SQL Server</h4>
+    <ul class="step-list">
+      <li><div class="step-num">1</div><div>El CASE exterior evalúa <code>NombreDepto</code>: si es <strong>'Sistemas'</strong>, entra al primer CASE interior.</div></li>
+      <li><div class="step-num">2</div><div>El CASE interior evalúa el sueldo dentro del contexto de ese departamento.</div></li>
+      <li><div class="step-num">3</div><div>Si el departamento es <strong>'Ventas'</strong>, entra al segundo CASE interior con su propio umbral.</div></li>
+      <li><div class="step-num">4</div><div>Si el departamento no es ninguno de los anteriores, el ELSE exterior devuelve <strong>'Área general'</strong> directamente, sin entrar a ningún CASE interno.</div></li>
+    </ul>
+  </div>
+
+  <hr>
+  <h3>Alternativa: AND en un solo CASE buscado</h3>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">El mismo resultado, más legible. En vez de anidar, combinás condiciones con AND:</p>
+
+  <div class="code-wrapper">
+    <div class="code-header">
+      <span class="code-title">case_con_and.sql — equivalente sin anidamiento</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><span class="kw">SELECT</span>
+    e.Nombre,
+    <span class="kw">CASE</span>
+        <span class="kw">WHEN</span> d.NombreDepto <span class="op">=</span> <span class="st">'Sistemas'</span> <span class="kw">AND</span> e.Sueldo <span class="op">&gt;=</span> <span class="nm">120000</span>
+             <span class="kw">THEN</span> <span class="st">'Tech Senior'</span>
+        <span class="kw">WHEN</span> d.NombreDepto <span class="op">=</span> <span class="st">'Sistemas'</span> <span class="kw">AND</span> e.Sueldo <span class="op">&gt;=</span> <span class="nm">80000</span>
+             <span class="kw">THEN</span> <span class="st">'Tech Mid'</span>
+        <span class="kw">WHEN</span> d.NombreDepto <span class="op">=</span> <span class="st">'Sistemas'</span>
+             <span class="kw">THEN</span> <span class="st">'Tech Junior'</span>
+        <span class="kw">WHEN</span> d.NombreDepto <span class="op">=</span> <span class="st">'Ventas'</span>   <span class="kw">AND</span> e.Sueldo <span class="op">&gt;=</span> <span class="nm">100000</span>
+             <span class="kw">THEN</span> <span class="st">'Vendedor A'</span>
+        <span class="kw">WHEN</span> d.NombreDepto <span class="op">=</span> <span class="st">'Ventas'</span>
+             <span class="kw">THEN</span> <span class="st">'Vendedor B'</span>
+        <span class="kw">ELSE</span> <span class="st">'Área general'</span>
+    <span class="kw">END</span> <span class="kw">AS</span> NivelEmpleado
+<span class="kw">FROM</span>  <span class="tbl">Empleados</span>     e
+<span class="kw">JOIN</span>  <span class="tbl">Departamentos</span> d
+   <span class="kw">ON</span>  d.IdDepartamento <span class="op">=</span> e.IdDepartamento;</pre>
+  </div>
+
+  <div class="tip success">
+    <span class="tip-icon">💡</span>
+    <div>En la mayoría de los casos, la versión con AND en un solo CASE buscado es preferible al anidamiento: es más fácil de leer, de modificar y de depurar.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 5: ERRORES COMUNES
+══════════════════════════════════════════ -->
+<div class="section" id="tab-errores">
+  <h2>Errores comunes</h2>
+  <p class="section-intro">Estos son los problemas que aparecen con más frecuencia al usar CASE. Conocerlos de antemano te ahorra mucho tiempo de debugging.</p>
+
+  <!-- Error 1 -->
+  <h3>① Olvidar el END</h3>
+
+  <div class="compare-grid">
+    <div class="compare-card simple">
+      <div class="compare-card-header">❌ Error — falta END</div>
+      <pre><span class="kw">SELECT</span>
+    Nombre,
+    <span class="kw">CASE</span>
+        <span class="kw">WHEN</span> Sueldo <span class="op">&gt;</span> <span class="nm">100000</span>
+        <span class="kw">THEN</span> <span class="st">'Alto'</span>
+        <span class="kw">ELSE</span> <span class="st">'Normal'</span>
+    <span class="cm">-- falta END ↑</span>
+<span class="kw">FROM</span> <span class="tbl">Empleados</span>;</pre>
+    </div>
+    <div class="compare-card buscado">
+      <div class="compare-card-header">✓ Correcto</div>
+      <pre><span class="kw">SELECT</span>
+    Nombre,
+    <span class="kw">CASE</span>
+        <span class="kw">WHEN</span> Sueldo <span class="op">&gt;</span> <span class="nm">100000</span>
+        <span class="kw">THEN</span> <span class="st">'Alto'</span>
+        <span class="kw">ELSE</span> <span class="st">'Normal'</span>
+    <span class="kw">END</span> <span class="kw">AS</span> Cat    <span class="cm">-- ← END</span>
+<span class="kw">FROM</span> <span class="tbl">Empleados</span>;</pre>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- Error 2 -->
+  <h3>② Orden incorrecto de condiciones</h3>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">SQL Server devuelve el THEN del <em>primer</em> WHEN verdadero. Si los rangos están mal ordenados, los resultados son incorrectos sin lanzar ningún error.</p>
+
+  <div class="compare-grid">
+    <div class="compare-card simple">
+      <div class="compare-card-header">❌ Mal orden — todos caen en "Medio"</div>
+      <pre><span class="kw">CASE</span>
+  <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span> <span class="nm">50000</span>
+       <span class="kw">THEN</span> <span class="st">'Medio'</span>
+  <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span> <span class="nm">100000</span>
+       <span class="kw">THEN</span> <span class="st">'Alto'</span>  <span class="cm">← nunca llega</span>
+  <span class="kw">ELSE</span> <span class="st">'Básico'</span>
+<span class="kw">END</span></pre>
+    </div>
+    <div class="compare-card buscado">
+      <div class="compare-card-header">✓ Orden correcto — de mayor a menor</div>
+      <pre><span class="kw">CASE</span>
+  <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span> <span class="nm">100000</span>
+       <span class="kw">THEN</span> <span class="st">'Alto'</span>   <span class="cm">← primero</span>
+  <span class="kw">WHEN</span> Sueldo <span class="op">&gt;=</span>  <span class="nm">50000</span>
+       <span class="kw">THEN</span> <span class="st">'Medio'</span>
+  <span class="kw">ELSE</span> <span class="st">'Básico'</span>
+<span class="kw">END</span></pre>
+    </div>
+  </div>
+
+  <div class="tip danger">
+    <span class="tip-icon">🔴</span>
+    <div>Este error es especialmente peligroso porque <strong>no genera ningún mensaje de error</strong>. La consulta se ejecuta sin problemas pero los datos son incorrectos. Siempre revisá el orden de los WHEN cuando trabajás con rangos numéricos o de fechas.</div>
+  </div>
+
+  <hr>
+
+  <!-- Error 3 -->
+  <h3>③ CASE simple no puede detectar NULLs</h3>
+
+  <div class="compare-grid">
+    <div class="compare-card simple">
+      <div class="compare-card-header">❌ No funciona con NULL</div>
+      <pre><span class="kw">CASE</span> Telefono
+  <span class="kw">WHEN</span> <span class="kw">NULL</span> <span class="kw">THEN</span> <span class="st">'Sin dato'</span>
+  <span class="cm">-- nunca se cumple: NULL = NULL</span>
+  <span class="cm">-- es UNKNOWN, no TRUE</span>
+  <span class="kw">ELSE</span> Telefono
+<span class="kw">END</span></pre>
+    </div>
+    <div class="compare-card buscado">
+      <div class="compare-card-header">✓ Usar CASE buscado con IS NULL</div>
+      <pre><span class="kw">CASE</span>
+  <span class="kw">WHEN</span> Telefono <span class="kw">IS NULL</span>
+       <span class="kw">THEN</span> <span class="st">'Sin dato'</span>
+  <span class="kw">ELSE</span> Telefono
+<span class="kw">END</span></pre>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- Error 4 -->
+  <h3>④ Tipos de dato incompatibles entre los THEN</h3>
+  <p style="color:var(--text2);font-size:14px;margin-bottom:16px;line-height:1.6">Todos los THEN y el ELSE de un mismo CASE deben devolver el mismo tipo de dato (o tipos compatibles). Si mezclás, SQL Server tira error o convierte implícitamente —a veces con resultados inesperados.</p>
+
+  <div class="compare-grid">
+    <div class="compare-card simple">
+      <div class="compare-card-header">❌ Tipos incompatibles</div>
+      <pre><span class="kw">CASE</span>
+  <span class="kw">WHEN</span> activo <span class="op">=</span> <span class="nm">1</span>
+       <span class="kw">THEN</span> <span class="st">'Activo'</span>   <span class="cm">← VARCHAR</span>
+  <span class="kw">ELSE</span> <span class="nm">0</span>              <span class="cm">← INT</span>
+<span class="kw">END</span>
+<span class="cm">-- Error o conversión implícita</span></pre>
+    </div>
+    <div class="compare-card buscado">
+      <div class="compare-card-header">✓ Mismo tipo en todos los THEN</div>
+      <pre><span class="kw">CASE</span>
+  <span class="kw">WHEN</span> activo <span class="op">=</span> <span class="nm">1</span>
+       <span class="kw">THEN</span> <span class="st">'Activo'</span>
+  <span class="kw">ELSE</span> <span class="st">'Inactivo'</span>  <span class="cm">← VARCHAR</span>
+<span class="kw">END</span></pre>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- Resumen -->
+  <h3>Resumen de errores</h3>
+
+  <table class="op-table">
+    <thead><tr><th>Error</th><th>¿Da error?</th><th>Solución</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Falta END</td>
+        <td style="color:var(--coral)">Sí, sintaxis</td>
+        <td style="color:var(--text)">Siempre cerrar con END.</td>
+      </tr>
+      <tr>
+        <td>Orden de WHEN</td>
+        <td style="color:var(--amber)">No — resultado incorrecto</td>
+        <td style="color:var(--text)">De condición más específica a más general.</td>
+      </tr>
+      <tr>
+        <td>WHEN NULL en CASE simple</td>
+        <td style="color:var(--amber)">No — simplemente no coincide</td>
+        <td style="color:var(--text)">Usar CASE buscado con IS NULL.</td>
+      </tr>
+      <tr>
+        <td>Tipos incompatibles</td>
+        <td style="color:var(--coral)">A veces — depende de la conversión</td>
+        <td style="color:var(--text)">Usar el mismo tipo en todos los THEN / ELSE.</td>
+      </tr>
+      <tr>
+        <td>Sin ELSE</td>
+        <td style="color:var(--amber)">No — devuelve NULL</td>
+        <td style="color:var(--text)">Siempre agregar ELSE para controlar el caso por defecto.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 6: QUIZ
+══════════════════════════════════════════ -->
+<div class="section" id="tab-quiz">
+  <h2>Quiz — Ponete a prueba</h2>
+  <p class="section-intro">5 preguntas para verificar que entendiste la cláusula CASE.</p>
+
+  <div id="quiz-container"></div>
+  <div id="quiz-score" class="quiz-score" style="display:none">
+    <div class="score-num" id="score-val"></div>
+    <div class="score-label" id="score-msg"></div>
+    <button class="btn" onclick="resetQuiz()">Volver a intentar</button>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<footer>
+  <div class="container">
+    Cláusula CASE en SQL Server · Tecnicatura Superior en Administración de Bases de Datos<br>
+    <span style="color:var(--text3)">Instituto Superior de Formación Docente y Técnica N° 43 · Lobos, Buenos Aires</span>
+  </div>
+</footer>
+
+<script>
+// ── TABS ──────────────────────────────────
+function showTab(name, idx) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+  const pct = Math.round((idx + 1) / 6 * 100);
+  document.getElementById('progress').style.width = pct + '%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── COPY ─────────────────────────────────
+function copyCode(btn) {
+  const pre = btn.closest('.code-wrapper').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ── DEMO INTERACTIVO ──────────────────────
+function getCategoria(sueldo) {
+  if (sueldo >= 150000) return { label: 'Premium',  color: '#bc8cff', bg: '#1c1040' };
+  if (sueldo >= 100000) return { label: 'Alto',     color: '#f85149', bg: '#2d1116' };
+  if (sueldo >=  50000) return { label: 'Medio',    color: '#d29922', bg: '#2b1d0e' };
+  return                        { label: 'Básico',  color: '#58a6ff', bg: '#0d1f36' };
+}
+
+function updateDemo() {
+  const sueldo = parseInt(document.getElementById('sueldo-slider').value);
+  document.getElementById('sueldo-val').textContent = sueldo.toLocaleString('es-AR');
+  const cat = getCategoria(sueldo);
+
+  const ranges = [
+    { label: '>= $150.000 → Premium', min: 150000, cat: 'Premium', color: '#bc8cff', bg: '#1c1040' },
+    { label: '>= $100.000 → Alto',    min: 100000, cat: 'Alto',    color: '#f85149', bg: '#2d1116' },
+    { label: '>= $50.000 → Medio',    min:  50000, cat: 'Medio',   color: '#d29922', bg: '#2b1d0e' },
+    { label: 'ELSE → Básico',         min:       0, cat: 'Básico', color: '#58a6ff', bg: '#0d1f36' },
+  ];
+
+  const html = ranges.map(r => {
+    const active = r.cat === cat.label;
+    return `<div class="result-row" style="${active ? 'background:' + r.bg + ';border-radius:6px;' : ''}">
+      <span class="result-val" style="color:${active ? r.color : 'var(--text3)'}">WHEN</span>
+      <span class="result-label" style="color:${active ? 'var(--text)' : 'var(--text3)'}">${r.label}</span>
+      ${active ? `<span class="result-badge" style="background:${r.bg};color:${r.color};border:1px solid ${r.color}40">← match</span>` : ''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('demo-result').innerHTML =
+    `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-family:'JetBrains Mono',monospace">Evaluando Sueldo = $${sueldo.toLocaleString('es-AR')}</div>` + html +
+    `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:13px">
+       Resultado: <span style="color:${cat.color};font-weight:700">'${cat.label}'</span>
+     </div>`;
+}
+
+updateDemo();
+
+// ── QUIZ ─────────────────────────────────
+const questions = [
+  {
+    q: "¿Qué devuelve CASE cuando ningún WHEN se cumple y no hay cláusula ELSE?",
+    code: null,
+    opts: [
+      "Lanza un error de ejecución",
+      "Devuelve una cadena vacía ''",
+      "Devuelve NULL",
+      "Devuelve el valor de la primera condición evaluada"
+    ],
+    correct: 2,
+    feedback: "Correcto. Si ningún WHEN coincide y no hay ELSE, CASE devuelve NULL. Por eso se recomienda siempre agregar un ELSE explícito para controlar el valor por defecto.",
+    feedbackErr: "Incorrecto. Cuando no hay ELSE y ningún WHEN coincide, CASE devuelve NULL silenciosamente, sin lanzar ningún error."
+  },
+  {
+    q: "¿Cuál es el resultado para un empleado con Sueldo = 80000 con este CASE?",
+    code: `CASE
+  WHEN Sueldo >= 50000 THEN 'Medio'
+  WHEN Sueldo >= 80000 THEN 'Alto'
+  ELSE 'Básico'
+END`,
+    opts: [
+      "'Alto'",
+      "'Medio'",
+      "'Básico'",
+      "NULL"
+    ],
+    correct: 1,
+    feedback: "Correcto. Aunque 80000 >= 80000 es verdadero para el segundo WHEN, SQL Server ya matcheó el primer WHEN (80000 >= 50000 también es verdadero) y devolvió 'Medio'. El orden importa: el primer WHEN verdadero gana.",
+    feedbackErr: "Incorrecto. El primer WHEN evaluado es 'Sueldo >= 50000', que es verdadero para 80000. SQL Server devuelve 'Medio' y no evalúa los demás WHEN."
+  },
+  {
+    q: "¿Cuál es la diferencia principal entre CASE simple y CASE buscado?",
+    code: null,
+    opts: [
+      "El CASE simple es más rápido porque usa índices automáticamente",
+      "El CASE buscado solo puede usarse en la cláusula WHERE",
+      "El CASE simple compara por igualdad; el buscado permite cualquier operador en cada WHEN",
+      "No hay diferencia, son completamente equivalentes"
+    ],
+    correct: 2,
+    feedback: "Correcto. El CASE simple evalúa solo igualdad (CASE col WHEN valor). El CASE buscado permite condiciones libres en cada WHEN: rangos con >, <, BETWEEN, IS NULL, LIKE, etc.",
+    feedbackErr: "Incorrecto. La diferencia clave es que CASE simple solo permite igualdad, mientras que CASE buscado permite cualquier tipo de condición en cada WHEN."
+  },
+  {
+    q: "¿Por qué este CASE nunca detecta los NULLs?",
+    code: `CASE Telefono
+  WHEN NULL THEN 'Sin dato'
+  ELSE Telefono
+END`,
+    opts: [
+      "Porque NULL no es una palabra reservada en SQL Server",
+      "Porque CASE simple usa = para comparar, y NULL = NULL es UNKNOWN, no TRUE",
+      "Porque hay que poner WHEN 'NULL' entre comillas",
+      "Porque NULL solo puede usarse en CASE buscado si la columna es de tipo VARCHAR"
+    ],
+    correct: 1,
+    feedback: "Correcto. En SQL, ninguna comparación con NULL usando = devuelve TRUE: NULL = NULL es UNKNOWN. Para detectar NULLs hay que usar CASE buscado con WHEN columna IS NULL.",
+    feedbackErr: "Incorrecto. El problema es que CASE simple usa = para comparar y NULL = NULL devuelve UNKNOWN en SQL, no TRUE. La solución es usar CASE buscado con IS NULL."
+  },
+  {
+    q: "¿En cuál de estas cláusulas NO se puede usar CASE?",
+    code: null,
+    opts: [
+      "SELECT",
+      "ORDER BY",
+      "GROUP BY",
+      "CASE se puede usar en todas las cláusulas anteriores"
+    ],
+    correct: 3,
+    feedback: "Correcto. CASE es una expresión y puede usarse en SELECT, WHERE, ORDER BY, GROUP BY, HAVING, y dentro de funciones de agregación. Es una de las herramientas más versátiles de SQL.",
+    feedbackErr: "Incorrecto. CASE puede usarse en todas esas cláusulas. Es una expresión, no una sentencia, por lo que puede aparecer en cualquier lugar donde SQL espere un valor."
+  }
+];
+
+let answered = [], score = 0;
+
+function buildQuiz() {
+  answered = new Array(questions.length).fill(false);
+  score = 0;
+  const c = document.getElementById('quiz-container');
+  c.innerHTML = '';
+  const letters = ['A','B','C','D'];
+  questions.forEach((q, qi) => {
+    const optsHtml = q.opts.map((o, oi) =>
+      `<button class="option" onclick="answer(${qi},${oi})" id="opt-${qi}-${oi}">
+         <span class="opt-letter">${letters[oi]}</span>${o}
+       </button>`
+    ).join('');
+    const codeBlock = q.code
+      ? `<div class="quiz-code">${q.code
+          .replace(/\bCASE\b/g,'<span class="kw">CASE</span>')
+          .replace(/\bWHEN\b/g,'<span class="kw">WHEN</span>')
+          .replace(/\bTHEN\b/g,'<span class="kw">THEN</span>')
+          .replace(/\bELSE\b/g,'<span class="kw">ELSE</span>')
+          .replace(/\bEND\b/g,'<span class="kw">END</span>')
+          .replace(/>=/g,'<span class="op">&gt;=</span>')
+          .replace(/\b(\d+)\b/g,'<span class="nm">$1</span>')
+          .replace(/'([^']*)'/g,"<span class=\"st\">'$1'</span>")
+        }</div>`
+      : '';
+    c.innerHTML += `
+      <div class="quiz-card" id="qcard-${qi}">
+        <div class="quiz-q">
+          <span class="q-num">Pregunta ${qi+1} / ${questions.length}</span>
+          ${q.q}
+        </div>
+        ${codeBlock}
+        <div class="options">${optsHtml}</div>
+        <div class="feedback" id="fb-${qi}"></div>
+      </div>`;
+  });
+}
+
+function answer(qi, oi) {
+  if (answered[qi]) return;
+  answered[qi] = true;
+  const q = questions[qi];
+  document.querySelectorAll(`[id^="opt-${qi}-"]`).forEach(o => o.disabled = true);
+  const fb = document.getElementById(`fb-${qi}`);
+  if (oi === q.correct) {
+    score++;
+    document.getElementById(`opt-${qi}-${oi}`).classList.add('correct');
+    fb.textContent = '✓ ' + q.feedback;
+    fb.className = 'feedback show ok';
+  } else {
+    document.getElementById(`opt-${qi}-${oi}`).classList.add('wrong');
+    document.getElementById(`opt-${qi}-${q.correct}`).classList.add('correct');
+    fb.textContent = '✗ ' + q.feedbackErr;
+    fb.className = 'feedback show err';
+  }
+  if (answered.every(Boolean)) setTimeout(showScore, 600);
+}
+
+function showScore() {
+  const pct = Math.round(score / questions.length * 100);
+  const msgs = ['Repasá el material nuevamente.','Buen intento, seguí practicando.','Bien! Estás en el buen camino.','Muy bien! Dominás el tema.','¡Perfecto!'];
+  document.getElementById('score-val').textContent = `${score}/${questions.length}`;
+  document.getElementById('score-msg').textContent = `${pct}% — ${msgs[Math.min(Math.floor(pct/25),4)]}`;
+  document.getElementById('score-val').style.color = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--coral)';
+  document.getElementById('quiz-score').style.display = 'block';
+  document.getElementById('quiz-score').scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetQuiz() {
+  document.getElementById('quiz-score').style.display = 'none';
+  buildQuiz();
+  document.getElementById('quiz-container').scrollIntoView({ behavior: 'smooth' });
+}
+
+buildQuiz();
+</script>
+</body>
+</html>
